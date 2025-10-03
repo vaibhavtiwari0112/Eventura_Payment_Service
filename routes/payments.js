@@ -2,10 +2,22 @@ const express = require("express");
 const router = express.Router();
 const paymentController = require("../controller/payment");
 
-// Create order
-router.post("/create-order", paymentController.createOrder);
+// ✅ Create order endpoint
+router.post("/create-order", async (req, res, next) => {
+  try {
+    await paymentController.createOrder(req, res);
+  } catch (err) {
+    next(err);
+  }
+});
 
-// Verify payment
-router.post("/verify", paymentController.verifyPayment);
+// ✅ Verify payment endpoint
+router.post("/verify", async (req, res, next) => {
+  try {
+    await paymentController.verifyPayment(req, res);
+  } catch (err) {
+    next(err);
+  }
+});
 
 module.exports = router;

@@ -32,7 +32,7 @@ const mongoose = require("mongoose");
 const morgan = require("morgan");
 const cors = require("cors");
 
-const paymentRoutes = require("./routes/payments");
+const paymentRoutes = require("../routes/payments");
 
 const app = express();
 

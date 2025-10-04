@@ -26,17 +26,19 @@
 //   .catch((err) => {
 //     console.error("Mongo connection error:", err);
 //   });
+
 require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const morgan = require("morgan");
 const cors = require("cors");
+const serverless = require("serverless-http"); // ✅ Important
 
 const paymentRoutes = require("../routes/payments");
 
 const app = express();
 
-// ✅ Allow all origins for testing (you can restrict later)
+// ✅ Enable CORS
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
@@ -47,22 +49,20 @@ app.use((req, res, next) => {
   next();
 });
 
-// ✅ Or also keep cors() for good measure
 app.use(cors({ origin: "*", methods: ["GET", "POST", "OPTIONS"] }));
-
 app.use(express.json());
 app.use(morgan("tiny"));
 
-// Routes
-app.use("/", paymentRoutes);
-// app.get("/", (req, res) => res.status(200).json({ message: "Home Page" }));
+// ✅ Mount routes
+app.use("/api/payments", paymentRoutes);
+app.get("/", (req, res) => res.status(200).json({ message: "Home Page" }));
 
-// MongoDB
+// ✅ Connect Mongo only once (works fine on serverless)
 const MONGO = process.env.MONGO_URI || "mongodb://localhost:27017/eventura";
 mongoose
   .connect(MONGO, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("✅ MongoDB connected"))
   .catch((err) => console.error("❌ Mongo connection error:", err));
 
-// ✅ Export Express app (not wrapped)
-module.exports = app;
+// ✅ Export handler for Vercel
+module.exports = serverless(app);

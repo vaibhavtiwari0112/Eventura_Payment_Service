@@ -36,26 +36,58 @@ const cors = require("cors");
 const paymentRoutes = require("./routes/payments");
 
 const app = express();
+
+// 🔍 Log every request
 app.use((req, res, next) => {
-  console.log("➡️ Incoming request:", req.method, req.url);
+  console.log(
+    "➡️ Incoming request:",
+    req.method,
+    req.url,
+    "from:",
+    req.headers.origin
+  );
   next();
 });
-app.use(cors());
+
+// ✅ Explicit CORS setup
+const allowedOrigins = [
+  "http://localhost:5173", // Vite dev
+  "http://localhost:3000", // CRA dev
+  "https://eventura-frontend-orcin.vercel.app/", // 🚀 replace with your actual frontend URL
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true); // allow curl/postman
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      console.warn("❌ CORS blocked request from:", origin);
+      return callback(new Error("Not allowed by CORS"), false);
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
+
+// Handle preflight OPTIONS requests globally
+app.options("*", cors());
+
+// Middleware
 app.use(express.json());
 app.use(morgan("tiny"));
 
+// Routes
 app.use("/api/payments", paymentRoutes);
 app.use("/", (req, res) => res.status(200).json({ message: "Home Page" }));
 
+// DB
 const MONGO = process.env.MONGO_URI || "mongodb://localhost:27017/eventura";
-
 mongoose
   .connect(MONGO, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => {
-    console.log("MongoDB connected");
-  })
-  .catch((err) => {
-    console.error("Mongo connection error:", err);
-  });
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch((err) => console.error("❌ Mongo connection error:", err));
 
-module.exports = app; // ✅ Export the app for Vercel
+module.exports = app; // ✅ Export for Vercel

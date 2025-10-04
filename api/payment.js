@@ -1,4 +1,5 @@
+const serverless = require("serverless-http");
 const app = require("../index");
 
-// Correct export for Vercel
-module.exports = app;
+// Export the serverless-wrapped handler
+module.exports = serverless(app);

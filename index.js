@@ -31,35 +31,33 @@ const express = require("express");
 const mongoose = require("mongoose");
 const morgan = require("morgan");
 const cors = require("cors");
-const serverless = require("serverless-http");
 
 const paymentRoutes = require("./routes/payments");
 
 const app = express();
 
-// ✅ CORS for all origins (testing)
+// ✅ CORS configuration
 app.use(
   cors({
-    origin: "*",
+    origin: "*", // for testing; restrict later
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-// Middleware
 app.use(express.json());
 app.use(morgan("tiny"));
 
 // Routes
 app.use("/api/payments", paymentRoutes);
-app.use("/", (req, res) => res.status(200).json({ message: "Home Page" }));
+app.get("/", (req, res) => res.status(200).json({ message: "Home Page" }));
 
-// DB
+// MongoDB
 const MONGO = process.env.MONGO_URI || "mongodb://localhost:27017/eventura";
 mongoose
   .connect(MONGO, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("✅ MongoDB connected"))
   .catch((err) => console.error("❌ Mongo connection error:", err));
 
-// ✅ Export as serverless function
-module.exports = serverless(app);
+// ✅ Export plain Express app (not wrapped)
+module.exports = app;

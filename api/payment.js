@@ -54,8 +54,8 @@ app.use(express.json());
 app.use(morgan("tiny"));
 
 // Routes
-app.use("/api/payments", paymentRoutes);
-app.get("/", (req, res) => res.status(200).json({ message: "Home Page" }));
+app.use("/", paymentRoutes);
+// app.get("/", (req, res) => res.status(200).json({ message: "Home Page" }));
 
 // MongoDB
 const MONGO = process.env.MONGO_URI || "mongodb://localhost:27017/eventura";

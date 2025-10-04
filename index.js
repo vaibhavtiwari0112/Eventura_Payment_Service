@@ -46,7 +46,7 @@ app.use(
 );
 
 // ✅ Explicit preflight handling
-app.options("*", (req, res) => {
+app.options("/.*/", (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
   res.set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");

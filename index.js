@@ -36,28 +36,31 @@ const paymentRoutes = require("./routes/payments");
 
 const app = express();
 
-// ✅ CORS must be first middleware
+// ✅ Allowed origins (no trailing slash!)
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://eventura-frontend-orcin.vercel.app/",
+  "https://eventura-frontend-orcin.vercel.app",
 ];
 
+// ✅ CORS setup
 app.use(
   cors({
-    origin: allowedOrigins,
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true); // allow curl / postman
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      console.warn("❌ CORS blocked request from:", origin);
+      return callback(new Error("Not allowed by CORS"));
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   })
 );
 
-app.options(/.*/, (req, res) => {
-  console.log("🔥 Preflight request received for:", req.url);
-  res.set("Access-Control-Allow-Origin", "*");
-  res.set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.sendStatus(200);
-});
+// ✅ Preflight handled by cors()
+app.options("*", cors());
 
 // 🔍 Log every request
 app.use((req, res, next) => {

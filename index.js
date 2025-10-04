@@ -58,7 +58,7 @@ app.use(
 );
 
 // Handle preflight OPTIONS requests globally
-app.options("*", cors());
+app.options(/.*/, cors());
 
 // Middleware
 app.use(express.json());

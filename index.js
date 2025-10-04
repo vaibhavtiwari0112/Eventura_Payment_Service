@@ -26,7 +26,6 @@
 //   .catch((err) => {
 //     console.error("Mongo connection error:", err);
 //   });
-
 require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
@@ -49,26 +48,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// ✅ Explicit CORS setup
-const allowedOrigins = [
-  "http://localhost:5173", // Vite dev
-  "http://localhost:3000", // CRA dev
-  "https://eventura-frontend-orcin.vercel.app/", // 🚀 replace with your actual frontend URL
-];
-
+// ✅ Allow all origins, all methods, all headers
 app.use(
   cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true); // allow curl/postman
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      console.warn("❌ CORS blocked request from:", origin);
-      return callback(new Error("Not allowed by CORS"), false);
-    },
+    origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
   })
 );
 

@@ -31,48 +31,20 @@ const express = require("express");
 const mongoose = require("mongoose");
 const morgan = require("morgan");
 const cors = require("cors");
+const serverless = require("serverless-http");
 
 const paymentRoutes = require("./routes/payments");
 
 const app = express();
 
-// ✅ Allowed origins (no trailing slash!)
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://eventura-frontend-orcin.vercel.app",
-];
-
-// ✅ CORS setup
+// ✅ CORS for all origins (testing)
 app.use(
   cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true); // allow curl / postman
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      console.warn("❌ CORS blocked request from:", origin);
-      return callback(new Error("Not allowed by CORS"));
-    },
+    origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
   })
 );
-
-// ✅ Preflight handled by cors()
-app.options("*", cors());
-
-// 🔍 Log every request
-app.use((req, res, next) => {
-  console.log(
-    "➡️ Incoming request:",
-    req.method,
-    req.url,
-    "from:",
-    req.headers.origin
-  );
-  next();
-});
 
 // Middleware
 app.use(express.json());
@@ -89,4 +61,5 @@ mongoose
   .then(() => console.log("✅ MongoDB connected"))
   .catch((err) => console.error("❌ Mongo connection error:", err));
 
-module.exports = app; // ✅ Export for Vercel
+// ✅ Export as serverless function
+module.exports = serverless(app);

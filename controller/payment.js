@@ -36,11 +36,7 @@ exports.createOrder = async (req, res) => {
 
     res.json({
       success: true,
-      order: {
-        id: order.id,
-        amount: order.amount,
-        currency: order.currency,
-      },
+      order: { id: order.id, amount: order.amount, currency: order.currency },
       paymentId: paymentDoc._id,
       key: process.env.RAZORPAY_KEY_ID,
     });
@@ -65,20 +61,17 @@ exports.verifyPayment = async (req, res) => {
       hallId,
     } = req.body;
 
-    // ✅ Validate all required fields upfront with clear error messages
     const missingFields = [];
     if (!razorpay_order_id) missingFields.push("razorpay_order_id");
     if (!razorpay_payment_id) missingFields.push("razorpay_payment_id");
     if (!razorpay_signature) missingFields.push("razorpay_signature");
 
     if (missingFields.length > 0) {
-      return res.status(400).json({
-        error: "missing required fields",
-        missing: missingFields,
-      });
+      return res
+        .status(400)
+        .json({ error: "missing required fields", missing: missingFields });
     }
 
-    // ✅ Verify Razorpay signature
     const generated_signature = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
@@ -86,7 +79,6 @@ exports.verifyPayment = async (req, res) => {
 
     const signatureVerified = generated_signature === razorpay_signature;
 
-    // ✅ Find or create Payment document
     let payment = null;
     if (paymentDocId) {
       payment = await Payment.findById(paymentDocId);
@@ -114,12 +106,10 @@ exports.verifyPayment = async (req, res) => {
     payment.signatureVerified = signatureVerified;
     payment.status = signatureVerified ? "captured" : "failed";
     payment.gatewayResponse = { razorpay_signature };
-
-    // ✅ Store hallId on the payment document so we don't lose it
     if (hallId) payment.hallId = hallId;
     if (bookingId) payment.bookingId = bookingId;
-
     await payment.save();
+
     console.log(
       "Payment saved | status:",
       payment.status,
@@ -127,25 +117,18 @@ exports.verifyPayment = async (req, res) => {
       payment.bookingId,
     );
 
-    // ✅ Notify booking service only when signature is verified
     if (signatureVerified) {
       const finalBookingId = bookingId || payment?.bookingId;
       const finalHallId = hallId || payment?.hallId;
 
       if (!finalBookingId) {
         console.warn(
-          "⚠️ Payment verified but no bookingId — cannot confirm booking",
+          "Payment verified but no bookingId — cannot confirm booking",
         );
       } else if (!finalHallId) {
-        // ✅ FIX: hallId missing is a common cause of 400 — log it clearly
         console.error(
-          "❌ Cannot notify booking service — hallId is missing from request body",
-        );
-        console.error(
-          "   bookingId:",
+          "Cannot confirm booking — hallId missing | bookingId:",
           finalBookingId,
-          "| hallId received:",
-          hallId,
         );
       } else {
         await notifyBookingService({
@@ -171,44 +154,37 @@ async function notifyBookingService({ bookingId, hallId, authHeader }) {
   const bookingServiceUrl = process.env.BOOKING_SERVICE_URL;
 
   if (!bookingServiceUrl) {
-    console.error("❌ BOOKING_SERVICE_URL env var is not set");
+    console.error("BOOKING_SERVICE_URL env var is not set");
     return;
   }
 
-  // ✅ FIX: Validate UUID format before calling — prevents "undefined" or
-  //         malformed values reaching Spring Boot which causes 400
   const UUID_REGEX =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
   if (!UUID_REGEX.test(bookingId)) {
-    console.error("❌ bookingId is not a valid UUID:", bookingId);
+    console.error("bookingId is not a valid UUID:", bookingId);
     return;
   }
   if (!UUID_REGEX.test(hallId)) {
-    console.error("❌ hallId is not a valid UUID:", hallId);
+    console.error("hallId is not a valid UUID:", hallId);
     return;
   }
 
-  // ✅ FIX: Build URL explicitly — avoids "?hallId=undefined" edge case
   const url = `${bookingServiceUrl}/bookings/${bookingId}/payment-success?hallId=${hallId}`;
-  console.log("📌 Notifying booking service | url:", url);
+  console.log("Notifying booking service | url:", url);
 
   try {
     const headers = {
       "Content-Type": "application/json",
+      // ✅ Required by API gateway PaymentSafetyFilter
+      // Uses bookingId so it's unique per booking and safe to retry
+      "X-Idempotency-Key": `payment-confirm-${bookingId}`,
     };
 
-    // ✅ FIX: Forward auth header only if it exists and is valid
-    //    If your booking service goes through the API gateway, the JWT must be present
-    //    If it calls the booking service directly (internal), you may not need auth
     if (authHeader && authHeader.startsWith("Bearer ")) {
       headers["Authorization"] = authHeader;
     } else {
-      console.warn(
-        "⚠️ No valid Authorization header to forward — booking service may reject (401/403)",
-      );
-      // If booking service is behind gateway, add an internal service token here:
-      // headers["Authorization"] = `Bearer ${process.env.INTERNAL_SERVICE_TOKEN}`;
+      console.warn("No valid Authorization header to forward");
     }
 
     const response = await axios.post(
@@ -216,37 +192,33 @@ async function notifyBookingService({ bookingId, hallId, authHeader }) {
       {},
       {
         headers,
-        timeout: 15000, // ✅ 15s timeout — Render cold starts can take 10-30s
+        timeout: 20000,
       },
     );
 
     console.log(
-      "✅ Booking service confirmed | status:",
+      "Booking confirmed | HTTP:",
       response.status,
       "| bookingId:",
       bookingId,
     );
   } catch (err) {
     if (err.response) {
-      // ✅ Log the full response body — this tells you exactly why Spring returned 400
-      console.error("❌ Booking service returned error");
-      console.error("   HTTP status :", err.response.status);
-      console.error("   Response body:", JSON.stringify(err.response.data));
-      console.error("   URL called   :", url);
-      console.error("   bookingId    :", bookingId);
-      console.error("   hallId       :", hallId);
-    } else if (err.code === "ECONNREFUSED") {
-      console.error(
-        "❌ Booking service is unreachable (connection refused) | url:",
-        url,
-      );
+      console.error("Booking service returned error");
+      console.error("  HTTP status :", err.response.status);
+      console.error("  Response    :", JSON.stringify(err.response.data));
+      console.error("  URL         :", url);
+      console.error("  bookingId   :", bookingId);
+      console.error("  hallId      :", hallId);
     } else if (err.code === "ECONNABORTED" || err.message.includes("timeout")) {
       console.error(
-        "❌ Booking service timed out — Render cold start? | url:",
+        "Booking service timed out (Render cold start?) | url:",
         url,
       );
+    } else if (err.code === "ECONNREFUSED") {
+      console.error("Booking service unreachable | url:", url);
     } else {
-      console.error("❌ Booking service call failed:", err.message);
+      console.error("Booking service call failed:", err.message);
     }
   }
 }
